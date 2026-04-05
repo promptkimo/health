@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>健康紀錄小幫手</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; background-color: #f0f2f5; color: #333; }
+        .container { max-width: 450px; margin: 0 auto; background: white; padding: 25px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+        h2 { text-align: center; color: #00B900; margin-bottom: 5px; }
+        .profile-box { text-align: center; margin-bottom: 20px; padding: 10px; border-bottom: 1px solid #eee; }
+        #userName { font-weight: bold; color: #555; }
+        
+        label { display: block; margin-top: 15px; font-weight: 600; font-size: 14px; }
+        input { width: 100%; padding: 12px; margin-top: 5px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; outline: none; }
+        input:focus { border-color: #00B900; }
+        
+        button { width: 100%; padding: 15px; margin-top: 25px; background-color: #00B900; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; transition: background 0.3s; }
+        button:active { background-color: #009900; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        #status { margin-top: 15px; text-align: center; font-size: 14px; }
+        
+        /* 歷史紀錄樣式 */
+        .history-section { margin-top: 30px; border-top: 2px solid #eee; padding-top: 20px; }
+        .history-title { font-weight: bold; margin-bottom: 10px; display: flex; justify-content: space-between; }
+        .history-item { background: #f9f9f9; padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 13px; border-left: 4px solid #00B900; }
+        .history-date { color: #888; font-size: 11px; margin-bottom: 3px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>健康紀錄</h2>
+    <div class="profile-box">
+        <span id="userName">正在載入 LINE 資訊...</span>
+    </div>
+    
+    <label for="systolic">收縮壓 (高壓)</label>
+    <input type="number" id="systolic" inputmode="numeric" placeholder="例如：120">
+    
+    <label for="diastolic">舒張壓 (低壓)</label>
+    <input type="number" id="diastolic" inputmode="numeric" placeholder="例如：80">
+    
+    <label for="sugar">血糖 (mg/dL)</label>
+    <input type="number" id="sugar" inputmode="numeric" placeholder="例如：95">
+    
+    <button id="submitBtn" onclick="submitData()" disabled>儲存紀錄</button>
+    <div id="status"></div>
+
+    <div class="history-section">
+        <div class="history-title">
+            <span>最近 5 筆紀錄</span>
+            <a href="javascript:void(0)" onclick="fetchHistory()" style="font-size: 12px; color: #007bff; text-decoration: none;">重新整理</a>
+        </div>
+        <div id="historyList">載入中...</div>
+    </div>
+</div>
+
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script>
+    // 參數設定
+    const LIFF_ID = "2009700439-YQBjAyVe"; 
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbxmlF2zQzzFuF-Kl0oGbaM4d7M7LD8kA5I-0CflLHQpxnY6UQy5MjSAWlDUId_Pd-aZ/exec"; 
+    
+    let userUID = "";
+
+    // 1. 初始化 LIFF
+    async function initializeLiff() {
+        try {
+            await liff.init({ liffId: LIFF_ID });
+            if (liff.isLoggedIn()) {
+                const profile = await liff.getProfile();
+                userUID = profile.userId;
+                document.getElementById("userName").innerText = `你好，${profile.displayName}`;
+                document.getElementById("submitBtn").disabled = false;
+                fetchHistory(); // 登入後自動抓取歷史紀錄
+            } else {
+                liff.login();
+            }
+        } catch (err) {
+            console.error("LIFF 初始化失敗", err);
+            document.getElementById("userName").innerText = "連線失敗，請在 LINE 中開啟";
+        }
+    }
+
+    // 2. 傳送資料到 GAS
+    function submitData() {
+        const systolic = document.getElementById("systolic").value;
+        const diastolic = document.getElementById("diastolic").value;
+        const sugar = document.getElementById("sugar").value;
+
+        if (!systolic && !diastolic && !sugar) {
+            alert("請至少輸入一項數值");
+            return;
+        }
+
+        const btn = document.getElementById("submitBtn");
+        const status = document.getElementById("status");
+        
+        btn.disabled = true;
+        btn.innerText = "傳送中...";
+        status.innerText = "正在儲存到雲端...";
+
+        const payload = {
+            uid: userUID,
+            systolic: systolic,
+            diastolic: diastolic,
+            sugar: sugar,
+            note: ""
+        };
+
+        fetch(GAS_URL, {
+            method: "POST",
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.result === "success") {
+                status.innerHTML = "<span style='color:green'>✅ 儲存成功！</span>";
+                document.getElementById("systolic").value = "";
+                document.getElementById("diastolic").value = "";
+                document.getElementById("sugar").value = "";
+                setTimeout(() => { status.innerText = ""; }, 3000);
+                fetchHistory(); // 儲存後更新列表
+            } else {
+                throw new Error();
+            }
+        })
+        .catch(err => {
+            status.innerHTML = "<span style='color:red'>❌ 儲存失敗，請稍後再試</span>";
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerText = "儲存紀錄";
+        });
+    }
+
+    // 3. 從 GAS 抓取歷史紀錄 (GET)
+    function fetchHistory() {
+        const listDiv = document.getElementById("historyList");
+        listDiv.innerHTML = "讀取中...";
+
+        fetch(`${GAS_URL}?uid=${userUID}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data && data.length > 0) {
+                listDiv.innerHTML = "";
+                // 只顯示最近 5 筆
+                data.slice(0, 5).forEach(item => {
+                    const div = document.createElement("div");
+                    div.className = "history-item";
+                    div.innerHTML = `
+                        <div class="history-date">${item.date}</div>
+                        <div>血壓：${item.systolic || '--'}/${item.diastolic || '--'} mmHg | 血糖：${item.sugar || '--'}</div>
+                    `;
+                    listDiv.appendChild(div);
+                });
+            } else {
+                listDiv.innerHTML = "尚無紀錄";
+            }
+        })
+        .catch(err => {
+            listDiv.innerHTML = "暫時無法載入紀錄";
+        });
+    }
+
+    window.onload = initializeLiff;
+</script>
+
+</body>
+</html>
