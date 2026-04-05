@@ -6,33 +6,39 @@
     <title>健康紀錄儀表板</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: -apple-system, sans-serif; padding: 15px; background-color: #f0f2f5; color: #333; }
+        body { font-family: -apple-system, sans-serif; padding: 15px; background-color: #f0f2f5; color: #333; margin: 0; }
         .container { max-width: 500px; margin: 0 auto; }
-        h2 { text-align: center; color: #00B900; margin-bottom: 20px; }
+        h2 { text-align: center; color: #00B900; margin-bottom: 15px; font-size: 22px; }
         
-        /* 區塊樣式 (卡片式設計) */
+        /* 頁籤導覽列樣式 */
+        .tabs { display: flex; background: white; border-radius: 10px; overflow: hidden; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .tab-btn { flex: 1; padding: 15px 0; border: none; background: white; color: #888; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .tab-btn.active { background: #00B900; color: white; }
+        
+        /* 頁籤內容區塊 */
+        .tab-content { display: none; animation: fadeIn 0.3s; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* 卡片與表單樣式 */
         .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 15px; }
         .card-title { font-weight: bold; font-size: 18px; margin-bottom: 15px; color: #444; border-left: 5px solid #00B900; padding-left: 10px; }
-        
         label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 14px; color: #666; }
         input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; background-color: #fafafa; }
         input:focus { border-color: #00B900; outline: none; background-color: #fff; }
-
-        /* 血壓並排樣式 */
+        
         .bp-group { display: flex; align-items: center; gap: 10px; }
         .bp-slash { font-size: 24px; color: #ccc; font-weight: 300; }
         
-        .btn-main { width: 100%; padding: 16px; background-color: #00B900; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 10px; transition: 0.3s; }
-        .btn-main:active { background-color: #009900; transform: scale(0.98); }
+        .btn-main { width: 100%; padding: 16px; background-color: #00B900; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .btn-main:active { background-color: #009900; }
         .btn-main:disabled { background-color: #ccc; }
-
-        /* 圖表與天數切換 */
-        .chart-section { margin-top: 25px; padding-top: 10px; }
+        
         .range-btns { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; }
         .btn-range { padding: 6px 16px; border: 1px solid #00B900; background: white; color: #00B900; border-radius: 20px; font-size: 13px; cursor: pointer; }
         .btn-range.active { background: #00B900; color: white; }
         
-        canvas { background: white; padding: 10px; border-radius: 8px; margin-bottom: 20px; max-height: 250px; }
+        canvas { background: white; padding: 10px; border-radius: 8px; margin-bottom: 15px; max-height: 250px; width: 100%; }
         #status { text-align: center; font-size: 14px; margin-top: 10px; height: 20px; }
         #profile { text-align: center; font-size: 14px; margin-bottom: 15px; color: #888; }
     </style>
@@ -43,48 +49,61 @@
     <h2>健康紀錄卡</h2>
     <div id="profile">正在載入 LINE 資訊...</div>
 
-    <div class="card">
-        <div class="card-title">血壓紀錄</div>
-        <div class="bp-group">
-            <div style="flex: 1;">
-                <label>收縮壓 (高壓)</label>
-                <input type="number" id="systolic" inputmode="numeric" placeholder="mmHg">
-            </div>
-            <div class="bp-slash">/</div>
-            <div style="flex: 1;">
-                <label>舒張壓 (低壓)</label>
-                <input type="number" id="diastolic" inputmode="numeric" placeholder="mmHg">
-            </div>
-        </div>
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('input')">📝 記錄資料</button>
+        <button class="tab-btn" onclick="switchTab('chart')">📊 查看圖表</button>
     </div>
 
-    <div class="card">
-        <div class="card-title">血糖紀錄</div>
-        <div style="margin-bottom: 15px;">
-            <label>血糖數值 (mg/dL)</label>
-            <input type="number" id="sugar" inputmode="numeric" placeholder="請輸入數值">
+    <div id="tab-input" class="tab-content active">
+        <div class="card">
+            <div class="card-title">血壓紀錄</div>
+            <div class="bp-group">
+                <div style="flex: 1;">
+                    <label>收縮壓 (高壓)</label>
+                    <input type="number" id="systolic" inputmode="numeric" placeholder="mmHg">
+                </div>
+                <div class="bp-slash">/</div>
+                <div style="flex: 1;">
+                    <label>舒張壓 (低壓)</label>
+                    <input type="number" id="diastolic" inputmode="numeric" placeholder="mmHg">
+                </div>
+            </div>
         </div>
-        <div>
-            <label>量測狀態</label>
-            <select id="sugarType">
-                <option value="空腹">空腹血糖</option>
-                <option value="飯後">飯後兩小時</option>
-                <option value="隨機">隨機 / 其他</option>
-            </select>
+
+        <div class="card">
+            <div class="card-title">血糖紀錄</div>
+            <div style="margin-bottom: 15px;">
+                <label>血糖數值 (mg/dL)</label>
+                <input type="number" id="sugar" inputmode="numeric" placeholder="請輸入數值">
+            </div>
+            <div>
+                <label>量測狀態</label>
+                <select id="sugarType">
+                    <option value="空腹">空腹血糖</option>
+                    <option value="飯後">飯後兩小時</option>
+                    <option value="隨機">隨機 / 其他</option>
+                </select>
+            </div>
         </div>
+
+        <button class="btn-main" id="submitBtn" onclick="submitData()" disabled>儲存本次紀錄</button>
+        <div id="status"></div>
     </div>
 
-    <button class="btn-main" id="submitBtn" onclick="submitData()" disabled>儲存本次紀錄</button>
-    <div id="status"></div>
-
-    <div class="chart-section">
+    <div id="tab-chart" class="tab-content">
         <div class="range-btns">
             <button class="btn-range active" onclick="changeRange(7, this)">最近7天</button>
             <button class="btn-range" onclick="changeRange(14, this)">14天</button>
             <button class="btn-range" onclick="changeRange(30, this)">30天</button>
         </div>
-        <div class="card"><canvas id="bpChart"></canvas></div>
-        <div class="card"><canvas id="sugarChart"></canvas></div>
+        <div class="card">
+            <div class="card-title" style="border-left-color: #ff4d4d;">血壓趨勢</div>
+            <canvas id="bpChart"></canvas>
+        </div>
+        <div class="card">
+            <div class="card-title" style="border-left-color: #FFD700;">血糖紀錄</div>
+            <canvas id="sugarChart"></canvas>
+        </div>
     </div>
 </div>
 
@@ -96,6 +115,7 @@
     let userUID = "";
     let bpChartInstance = null;
     let sugarChartInstance = null;
+    let isChartLoaded = false; // 避免重複載入圖表
 
     async function init() {
         try {
@@ -105,8 +125,25 @@
             userUID = profile.userId;
             document.getElementById("profile").innerText = `使用者：${profile.displayName}`;
             document.getElementById("submitBtn").disabled = false;
-            changeRange(7, document.querySelector('.btn-range.active'));
         } catch (e) { console.error(e); }
+    }
+
+    // 切換頁籤功能
+    function switchTab(tabName) {
+        // 移除所有 active 狀態
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+        
+        // 根據選擇加上 active
+        if (tabName === 'input') {
+            document.querySelectorAll('.tab-btn')[0].classList.add('active');
+            document.getElementById('tab-input').classList.add('active');
+        } else {
+            document.querySelectorAll('.tab-btn')[1].classList.add('active');
+            document.getElementById('tab-chart').classList.add('active');
+            // 切換到圖表時才向後台請求資料
+            changeRange(7, document.querySelector('.btn-range.active') || document.querySelectorAll('.btn-range')[0]);
+        }
     }
 
     function submitData() {
@@ -138,12 +175,11 @@
         .then(r => r.json())
         .then(res => {
             status.innerHTML = "<span style='color:green; font-weight:bold;'>✅ 資料已成功儲存</span>";
-            // 清空輸入
             document.getElementById("systolic").value = "";
             document.getElementById("diastolic").value = "";
             document.getElementById("sugar").value = "";
+            isChartLoaded = false; // 標記圖表需要更新
             setTimeout(() => { status.innerText = ""; }, 3000);
-            changeRange(7, document.querySelector('.btn-range.active'));
         })
         .catch(e => {
             status.innerHTML = "<span style='color:red;'>❌ 儲存失敗，請檢查網路</span>";
@@ -156,6 +192,10 @@
         document.querySelectorAll('.btn-range').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         
+        // 顯示載入中
+        if(bpChartInstance) bpChartInstance.destroy();
+        if(sugarChartInstance) sugarChartInstance.destroy();
+        
         fetch(`${GAS_URL}?uid=${userUID}&days=${days}`)
         .then(r => r.json())
         .then(data => renderCharts(data));
@@ -167,8 +207,7 @@
         const diaData = data.map(d => d.diastolic);
         const sugarData = data.map(d => d.sugar);
 
-        // 1. 血壓圖表 (折線圖)
-        if (bpChartInstance) bpChartInstance.destroy();
+        // 1. 血壓圖表
         bpChartInstance = new Chart(document.getElementById('bpChart'), {
             type: 'line',
             data: {
@@ -179,30 +218,28 @@
                 ]
             },
             options: { 
-                responsive: true, 
-                plugins: { title: { display: true, text: '血壓趨勢圖 (mmHg)', font: {size: 16} } },
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' } },
                 scales: { y: { beginAtZero: false } }
             }
         });
 
-        // 2. 血糖圖表 (長條圖，依類型區分顏色)
-        if (sugarChartInstance) sugarChartInstance.destroy();
+        // 2. 血糖圖表
         sugarChartInstance = new Chart(document.getElementById('sugarChart'), {
             type: 'bar',
             data: {
                 labels: labels,
                 datasets: [{ 
-                    label: '血糖數值', 
+                    label: '數值', 
                     data: sugarData, 
                     backgroundColor: data.map(d => d.sugarType === '空腹' ? '#FFD700' : (d.sugarType === '飯後' ? '#00B900' : '#999'))
                 }]
             },
             options: { 
-                responsive: true, 
-                plugins: { 
-                    title: { display: true, text: '血糖紀錄 (黃:空腹 / 綠:飯後)', font: {size: 16} },
-                    legend: { display: false }
-                } 
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } } 
             }
         });
     }
